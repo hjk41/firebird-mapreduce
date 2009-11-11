@@ -10,7 +10,7 @@
 
 #define dlog(...) //printf(__VA_ARGS__)
 
-template <typename InputDataT, typename OutputKeyT, typename OutputValT>
+template <typename InputDataT, typename InputValT,typename OutputKeyT, typename OutputValT>
 class MapReduceScheduler{
 public:
 	// typedefs
@@ -26,16 +26,37 @@ public:
 		OutputKeyT key;
 		OutputValT val;
 	};
+
+	struct InnerKeyValT
+	{
+		InnerKeyValT(){};
+		InnerKeyValT(const OutputKeyT & k, const InputValT & v):key(k),val(v){};
+		OutputKeyT key;
+		InputValT val;
+	};
+
 	typedef std::list<OutputValT> OutputValsT;
+	typedef std::list<InputValT> MapOutputValsT;
+
 	struct KeyValsT{
 		KeyValsT():vals(NULL),key(){};
 		KeyValsT(const OutputKeyT & k, const OutputValsT * v):key(k),vals(v){};
 		OutputKeyT key;
 		const OutputValsT * vals;
 	};
-	typedef typename OutputValsT::const_iterator OutputValIter;
+
+	struct InnerKeyValsT{
+		InnerKeyValsT():vals(NULL),key(){};
+		InnerKeyValsT(const OutputKeyT & k, const MapOutputValsT * v):key(k),vals(v){};
+		OutputKeyT key;
+		const MapOutputValsT * vals;
+	};
+	typedef typename MapOutputValsT::const_iterator OutputValIter;
+
 	typedef std::map<OutputKeyT, OutputValsT> KeyValsMapT;
+	typedef std::map<OutputKeyT, MapOutputValsT> InnerKeyValsMapT;
 	typedef std::vector<KeyValT> KeyValVectorT;
+	typedef std::vector<InnerKeyValT> InnerKeyValVector;
 public:
 	// cntr and dstr
 	MapReduceScheduler(){
@@ -92,11 +113,11 @@ public:
 			map(mInputData+offset, len);
 		}
 		#pragma omp barrier
-		const KeyValsMapT & interData=mInterData.get_data();
-		std::vector<KeyValsT> interKeyVals(interData.size());
+		const InnerKeyValsMapT & interData=mInterData.get_data();
+		std::vector<InnerKeyValsT> interKeyVals(interData.size());
 		int index=0;
-		for(typename KeyValsMapT::const_iterator it=interData.begin(); it!=interData.end(); it++){
-			interKeyVals[index++]=KeyValsT(it->first, &(it->second));
+		for(typename InnerKeyValsMapT::const_iterator it=interData.begin(); it!=interData.end(); it++){
+			interKeyVals[index++]=InnerKeyValsT(it->first, &(it->second));
 		}
 		// reduce
 		keyForThreads.clear();
@@ -104,7 +125,7 @@ public:
 		int numReduceTasks=interKeyVals.size();
 		#pragma omp parallel for
 		for(int i=0;i<numReduceTasks;i++){
-			const KeyValsT & kvp=interKeyVals[i];
+			const InnerKeyValsT & kvp=interKeyVals[i];
 			int threadNum=omp_get_thread_num();
 			keyForThreads[threadNum]=kvp.key;
 			reduce(kvp.key, kvp.vals->begin(), kvp.vals->end());
@@ -139,16 +160,16 @@ private:
 	// intermediate data
 	class InterMap{
 	private:
-		KeyValsMapT data;
+		InnerKeyValsMapT data;
 		
 	public:
-		void insert(const OutputKeyT & key, const OutputValT & val){
+		void insert(const OutputKeyT & key, const InputValT & val){
 			#pragma omp critical(inter_insert)
 			{
 				data[key].push_back(val);
 			}
 		}
-		const KeyValsMapT & get_data() const{
+		const InnerKeyValsMapT & get_data() const{
 			return data;
 		}
 	};

@@ -5,10 +5,11 @@ using namespace std;
 #include <stdlib.h>
 
 typedef int InputDataT;
+typedef int InputValT;
 typedef int OutputKeyT;
 typedef int OutputValT;
 
-class MyScheduler: public MapReduceScheduler<InputDataT, OutputKeyT, OutputValT>{
+class MyScheduler: public MapReduceScheduler<InputDataT,InputValT, OutputKeyT, OutputValT>{
 public:
 	virtual void map(const InputDataT * data, const unsigned int len){
 		for(int i=0;i<len;i++){
