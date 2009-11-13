@@ -4,21 +4,17 @@ using namespace std;
 #include "firebird.h"
 #include <stdlib.h>
 
-typedef int InputDataT;
-typedef int InputValT;
-typedef int OutputKeyT;
-typedef int OutputValT;
 
-class MyScheduler: public MapReduceScheduler<InputDataT,InputValT, OutputKeyT, OutputValT>{
+class MyScheduler: public MapReduceScheduler<int,int, int, int>{
 public:
-	virtual void map(const InputDataT * data, const unsigned int len){
+	virtual void map(const int * data, const unsigned int len){
 		for(int i=0;i<len;i++){
 			emit_intermediate(data[i],1);
 		}
 	}
-	virtual void reduce(const OutputKeyT &, const OutputValIter & valBegin, const OutputValIter & valEnd){
+	virtual void reduce(const int &, const MapOutputValIter & valBegin, const MapOutputValIter & valEnd){
 		int sum=0;
-		for(OutputValIter it=valBegin; it!=valEnd; it++)
+		for(MapOutputValIter it=valBegin; it!=valEnd; it++)
 			sum++;
 		emit(sum);
 	}
