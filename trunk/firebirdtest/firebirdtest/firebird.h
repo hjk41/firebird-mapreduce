@@ -10,7 +10,7 @@
 
 #define dlog(...) //printf(__VA_ARGS__)
 
-template <typename InputDataT, typename InputValT,typename OutputKeyT, typename OutputValT>
+template <typename InputDataT, typename MapOutputValT,typename OutputKeyT, typename OutputValT>
 class MapReduceScheduler{
 public:
 	// typedefs
@@ -30,13 +30,13 @@ public:
 	struct InnerKeyValT
 	{
 		InnerKeyValT(){};
-		InnerKeyValT(const OutputKeyT & k, const InputValT & v):key(k),val(v){};
+		InnerKeyValT(const OutputKeyT & k, const MapOutputValT & v):key(k),val(v){};
 		OutputKeyT key;
-		InputValT val;
+		MapOutputValT val;
 	};
 
 	typedef std::list<OutputValT> OutputValsT;
-	typedef std::list<InputValT> MapOutputValsT;
+	typedef std::list<MapOutputValT> MapOutputValsT;
 
 	struct KeyValsT{
 		KeyValsT():vals(NULL),key(){};
@@ -51,7 +51,7 @@ public:
 		OutputKeyT key;
 		const MapOutputValsT * vals;
 	};
-	typedef typename MapOutputValsT::const_iterator OutputValIter;
+	typedef typename MapOutputValsT::const_iterator MapOutputValIter;
 
 	typedef std::map<OutputKeyT, OutputValsT> KeyValsMapT;
 	typedef std::map<OutputKeyT, MapOutputValsT> InnerKeyValsMapT;
@@ -138,7 +138,7 @@ public:
 	}
 	
 	// emit
-	void emit_intermediate(const OutputKeyT & key, const OutputValT & val){
+	void emit_intermediate(const OutputKeyT & key, const MapOutputValT & val){
 		mInterData.insert(key,val);
 		
 	}
@@ -148,7 +148,7 @@ public:
 
 	// user specified functions
 	virtual void map(const InputDataT *, const UINT)=0;
-	virtual void reduce(const OutputKeyT &, const OutputValIter & valBegin, const OutputValIter & valEnd)=0;
+	virtual void reduce(const OutputKeyT &, const MapOutputValIter & valBegin, const MapOutputValIter & valEnd)=0;
 private:
 	// num threads
 	UINT mNumMapThreads;
@@ -163,7 +163,7 @@ private:
 		InnerKeyValsMapT data;
 		
 	public:
-		void insert(const OutputKeyT & key, const InputValT & val){
+		void insert(const OutputKeyT & key, const MapOutputValT & val){
 			#pragma omp critical(inter_insert)
 			{
 				data[key].push_back(val);
