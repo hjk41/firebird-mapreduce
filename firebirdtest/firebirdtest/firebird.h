@@ -103,7 +103,8 @@ public:
 	// run the scheduler
 	void run(){
 		assert(mInputData!=NULL);
-		mOutputData.clear();
+		mInterData.init();
+		mOutputData.init();
 		// map
 		int numMapTasks=(mInputDataSize+mUnitSize-1)/mUnitSize;
 		#pragma omp parallel for
@@ -160,16 +161,29 @@ private:
 	// intermediate data
 	class InterMap{
 	private:
-		InnerKeyValsMapT data;
-		
+		mutable InnerKeyValsMapT data;
+		InnerKeyValsMapT* _data;
+	public :
+		void init()
+		{
+			_data = new InnerKeyValsMapT[omp_get_num_procs()];
+		}
+
 	public:
 		void insert(const OutputKeyT & key, const MapOutputValT & val){
-			#pragma omp critical(inter_insert)
-			{
-				data[key].push_back(val);
-			}
+			int thread_id = omp_get_thread_num();
+			_data[thread_id][key].push_back(val);
 		}
-		const InnerKeyValsMapT & get_data() const{
+		
+		const InnerKeyValsMapT & get_data() const {
+			
+			for(int i = 0;i<omp_get_num_procs();i++)
+			{
+				for(InnerKeyValsMapT::iterator iter = _data[i].begin(); iter != _data[i].end(); iter++)
+				{
+					data[iter->first].merge(iter->second);
+				}
+			}
 			return data;
 		}
 	};
@@ -178,24 +192,30 @@ private:
 	// output data
 	class OutputVector{
 	private:
-		KeyValVectorT data;
+		mutable KeyValVectorT data;
+		KeyValVectorT* _data;
 	public:
-		void insert(const OutputKeyT & key, const OutputValT & val){
-			
-			#pragma omp critical(output_insert)
-			{
-				data.push_back(KeyValT(key,val));
-			}
+		void init()
+		{
+			_data  = new KeyValVectorT[omp_get_num_procs()];
 		}
 
-		void clear()
-		{
-			data.clear();
+
+		void insert(const OutputKeyT & key, const OutputValT & val){
+			int thread_id = omp_get_thread_num();
+			_data[thread_id].push_back(KeyValT(key,val));
+
 		}
 
 		const KeyValVectorT & get_data() const{
+			data.clear();
+			for(int i = 0;i<omp_get_num_procs();i++)
+			{
+				data.insert(data.end(),_data[i].begin(),_data[i].end());
+			}
 			return data;
 		}
+
 	};
 	OutputVector mOutputData;
 
