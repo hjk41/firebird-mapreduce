@@ -1,1 +1,1 @@
-../../../firebird/firebird.h
+../../../firebird.h
