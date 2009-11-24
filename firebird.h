@@ -7,8 +7,12 @@
 #include <omp.h>
 #include <stdio.h>
 #include <assert.h>
+#include "time.h"
+
+#define __TIMING__
 
 #define dlog(...) //printf(__VA_ARGS__)
+
 
 template <typename InputDataT, typename MapOutputValT,typename OutputKeyT, typename OutputValT>
 class MapReduceScheduler{
@@ -68,8 +72,9 @@ public:
 		~InterMap(){delete[] _data;};
 		void reset()
 		{
+			data.clear();
 			delete[] _data;
-			_data = new InterKeyValsMapT[omp_get_num_procs()];
+			_data = new InterKeyValsMapT[omp_get_max_threads()];
 		}
 
 	public:
@@ -79,8 +84,7 @@ public:
 		}
 		
 		const InterKeyValsMapT & get_data() const {
-			
-			for(int i = 0;i<omp_get_num_procs();i++)
+			for(int i = 0;i<omp_get_max_threads();i++)
 			{
 				for(typename InterKeyValsMapT::iterator iter = _data[i].begin(); iter != _data[i].end(); iter++)
 				{
@@ -102,8 +106,9 @@ public:
 		~OutputVector(){delete[] _data;}
 		void reset()
 		{
+			data.clear();
 			delete[] _data;
-			_data  = new KeyValVectorT[omp_get_num_procs()];
+			_data  = new KeyValVectorT[omp_get_max_threads()];
 		}
 
 		void insert(const OutputKeyT & key, const OutputValT & val){
@@ -114,12 +119,12 @@ public:
 
 		const KeyValVectorT & get_data() const{
 			int num_elmts=0;
-			for(int i=0;i<omp_get_num_procs();i++){
+			for(int i=0;i<omp_get_max_threads();i++){
 				num_elmts+=_data[i].size();
 			}
 			data.resize(num_elmts);
 			int index=0;
-			for(int i = 0;i<omp_get_num_procs();i++)
+			for(int i = 0;i<omp_get_max_threads();i++)
 			{
 				copy(_data[i].begin(),_data[i].end(),&data[0]+index);
 				index+=_data[i].size();
@@ -131,13 +136,15 @@ public:
 public:
 	// cntr and dstr
 	MapReduceScheduler(){
-		int num_procs=omp_get_num_procs();
+		int num_procs=omp_get_max_threads();
 		dlog("num processors: %d\n",num_procs);
 		mNumMapThreads=num_procs;
 		mNumReduceThreads=num_procs;
 		mInputData=NULL;
 		mInputDataSize=0;
 		mUnitSize=10;
+
+		map_time=merge_time=reduce_time=0;
 	};
 	virtual ~MapReduceScheduler(){};
 
@@ -173,28 +180,42 @@ public:
 	// run the scheduler
 	void run(){
 		assert(mInputData!=NULL);
-		mInterData.reset();
-		mOutputData.reset();
-		omp_set_num_threads(omp_get_num_procs());
 		// map
+#ifdef __TIMING__
+		double t1=get_time();
+#endif
 		int numMapTasks=(mInputDataSize+mUnitSize-1)/mUnitSize;
+		omp_set_num_threads(mNumMapThreads);
+		mInterData.reset();
 		#pragma omp parallel for
 		for(int i=0;i<numMapTasks;i++){
 			int offset=mUnitSize*i;
 			int len= mInputDataSize>(offset+mUnitSize)?mUnitSize:mInputDataSize-offset;
 			map(mInputData+offset, len);
 		}
-		#pragma omp barrier
+#ifdef __TIMING__
+		double t2=get_time();
+		map_time+=t2-t1;
+#endif
+
+		// copy map into vector so that we can use parallel for
 		const InterKeyValsMapT & interData=mInterData.get_data();
 		std::vector<InterKeyValsT> interKeyVals(interData.size());
 		int index=0;
 		for(typename InterKeyValsMapT::const_iterator it=interData.begin(); it!=interData.end(); it++){
 			interKeyVals[index++]=InterKeyValsT(it->first, &(it->second));
 		}
+#ifdef __TIMING__
+		double t3=get_time();
+		merge_time+=t3-t2;
+#endif
+
 		// reduce
 		keyForThreads.clear();
 		keyForThreads.resize(mNumReduceThreads);
 		int numReduceTasks=interKeyVals.size();
+		omp_set_num_threads(mNumReduceThreads);
+		mOutputData.reset();
 		#pragma omp parallel for
 		for(int i=0;i<numReduceTasks;i++){
 			const InterKeyValsT & kvp=interKeyVals[i];
@@ -202,6 +223,10 @@ public:
 			keyForThreads[threadNum]=kvp.key;
 			reduce(kvp.key, kvp.vals->begin(), kvp.vals->end());
 		}
+#ifdef __TIMING__
+		double t4=get_time();
+		reduce_time+=t4-t3;
+#endif
 	}
 
 	// function to get output
@@ -221,6 +246,14 @@ public:
 	// user specified functions
 	virtual void map(const InputDataT *, const UINT)=0;
 	virtual void reduce(const OutputKeyT &, const MapOutputValIter & valBegin, const MapOutputValIter & valEnd)=0;
+
+	virtual void print_time(){
+#ifdef __TIMING__
+		printf("-- map time: %f\n",map_time);
+		printf("-- merge time: %f\n",merge_time);
+		printf("-- reduce time: %f\n",reduce_time);
+#endif
+	}
 private:
 	// num threads
 	UINT mNumMapThreads;
@@ -235,6 +268,11 @@ private:
 	OutputVector mOutputData;
 	// auxiliary data for the threads
 	vector<OutputKeyT> keyForThreads;
+
+	// profiling data
+	double map_time;
+	double merge_time;
+	double reduce_time;
 };
 
 #endif
