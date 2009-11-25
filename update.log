@@ -8,3 +8,12 @@
 
 2009/11/23
 1.将原来实现中的omp critical去除
+
+2009/11/24
+1. reorganize the project directory
+2. add single source shortest path as a sample application
+3. set the number of threads according to OMP_NUM_THREADS, but can also be set
+
+2009/11/25
+1. change the template parameter order to InputDataT, OutputKeyT, MapOutputValT,
+    ReduceOutputValT 

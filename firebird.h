@@ -14,7 +14,7 @@
 #define dlog(...) //printf(__VA_ARGS__)
 
 
-template <typename InputDataT, typename MapOutputValT,typename OutputKeyT, typename OutputValT>
+template <typename InputDataT, typename OutputKeyT, typename MapOutputValT, typename ReduceOutputValT>
 class MapReduceScheduler{
 public:
 	// typedefs
@@ -26,9 +26,9 @@ public:
 	};
 	struct KeyValT{
 		KeyValT(){};
-		KeyValT(const OutputKeyT & k, const OutputValT & v):key(k),val(v){};
+		KeyValT(const OutputKeyT & k, const ReduceOutputValT & v):key(k),val(v){};
 		OutputKeyT key;
-		OutputValT val;
+		ReduceOutputValT val;
 	};
 
 	struct InterKeyValT
@@ -39,14 +39,13 @@ public:
 		MapOutputValT val;
 	};
 
-	typedef std::list<OutputValT> OutputValsT;
 	typedef std::list<MapOutputValT> MapOutputValsT;
 
 	struct KeyValsT{
 		KeyValsT():vals(NULL),key(){};
-		KeyValsT(const OutputKeyT & k, const OutputValsT * v):key(k),vals(v){};
+		KeyValsT(const OutputKeyT & k, const MapOutputValsT * v):key(k),vals(v){};
 		OutputKeyT key;
-		const OutputValsT * vals;
+		const MapOutputValsT * vals;
 	};
 
 	struct InterKeyValsT{
@@ -57,7 +56,6 @@ public:
 	};
 	typedef typename MapOutputValsT::const_iterator MapOutputValIter;
 
-	typedef std::map<OutputKeyT, OutputValsT> KeyValsMapT;
 	typedef std::map<OutputKeyT, MapOutputValsT> InterKeyValsMapT;
 	typedef std::vector<KeyValT> KeyValVectorT;
 	typedef std::vector<InterKeyValT> InterKeyValVector;
@@ -84,6 +82,7 @@ public:
 		}
 		
 		const InterKeyValsMapT & get_data() const {
+			data.clear();
 			for(int i = 0;i<omp_get_max_threads();i++)
 			{
 				for(typename InterKeyValsMapT::iterator iter = _data[i].begin(); iter != _data[i].end(); iter++)
@@ -111,7 +110,7 @@ public:
 			_data  = new KeyValVectorT[omp_get_max_threads()];
 		}
 
-		void insert(const OutputKeyT & key, const OutputValT & val){
+		void insert(const OutputKeyT & key, const ReduceOutputValT & val){
 			int thread_id = omp_get_thread_num();
 			_data[thread_id].push_back(KeyValT(key,val));
 
@@ -239,7 +238,7 @@ public:
 		mInterData.insert(key,val);
 		
 	}
-	void emit(const OutputValT & val){
+	void emit(const ReduceOutputValT & val){
 		mOutputData.insert(keyForThreads[omp_get_thread_num()], val);
 	}
 
