@@ -23,11 +23,11 @@ struct src_dist_t{
 };
 
 typedef src_dist_t InputDataT;
-typedef float MapOutputValT;
 typedef unsigned int OutputKeyT;
-typedef float OutputValT;
+typedef float MapOutputValT;
+typedef float ReduceOutputValT;
 
-class MyScheduler: public MapReduceScheduler<src_dist_t, MapOutputValT, OutputKeyT, OutputValT>{
+class MyScheduler: public MapReduceScheduler<src_dist_t, OutputKeyT, MapOutputValT, ReduceOutputValT>{
 public:
 	virtual void map(const InputDataT * data, const unsigned int len){
 		for(int i=0;i<len;i++){
@@ -166,6 +166,7 @@ double t1=get_time();
 	s.graph=graph;
 	s.node_start=node_start;
 	s.dist=dist;
+	s.set_unit_size(100);
 
 	src_dist_t inp;
 	inp.src=source;
