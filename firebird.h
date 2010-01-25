@@ -14,49 +14,49 @@
 #define dlog(...) //printf(__VA_ARGS__)
 
 
-template <typename InputDataT, typename OutputKeyT, typename MapOutputValT, typename ReduceOutputValT>
+typedef unsigned int my_size_t;
+
+template<class KeyT>
+my_size_t FireBirdHash(const KeyT & key){
+	return 0;
+}
+
+template <typename InputDataT, typename InterKeyT, typename InterValT, typename OutputValT,
+	typename HashFuncT=FireBirdHash<InterKeyT>, bool incremental_combine=false, bool non_conflict_hash=false >
 class MapReduceScheduler{
 public:
 	// typedefs
-	typedef unsigned int UINT;
 	struct MapInputT{
 		MapInputT():ptr(NULL),size(0){};
 		const InputDataT * ptr;
-		const UINT size;
-	};
-	struct KeyValT{
-		KeyValT(){};
-		KeyValT(const OutputKeyT & k, const ReduceOutputValT & v):key(k),val(v){};
-		OutputKeyT key;
-		ReduceOutputValT val;
+		my_size_t size;
 	};
 
-	struct InterKeyValT
-	{
+	struct InterKeyValT{
 		InterKeyValT(){};
-		InterKeyValT(const OutputKeyT & k, const MapOutputValT & v):key(k),val(v){};
-		OutputKeyT key;
+		InterKeyValT(const InterKeyT & k, const MapOutputValT & v):key(k),val(v){};
+		InterKeyT key;
 		MapOutputValT val;
 	};
 
-	typedef std::list<MapOutputValT> MapOutputValsT;
+	typedef std::list<OutputValT> OutputValListT;
 
 	struct KeyValsT{
 		KeyValsT():vals(NULL),key(){};
-		KeyValsT(const OutputKeyT & k, const MapOutputValsT * v):key(k),vals(v){};
-		OutputKeyT key;
+		KeyValsT(const InterKeyT & k, const MapOutputValsT * v):key(k),vals(v){};
+		InterKeyT key;
 		const MapOutputValsT * vals;
 	};
 
 	struct InterKeyValsT{
 		InterKeyValsT():vals(NULL),key(){};
-		InterKeyValsT(const OutputKeyT & k, const MapOutputValsT * v):key(k),vals(v){};
-		OutputKeyT key;
+		InterKeyValsT(const InterKeyT & k, const MapOutputValsT * v):key(k),vals(v){};
+		InterKeyT key;
 		const MapOutputValsT * vals;
 	};
 	typedef typename MapOutputValsT::const_iterator MapOutputValIter;
 
-	typedef std::map<OutputKeyT, MapOutputValsT> InterKeyValsMapT;
+	typedef std::map<InterKeyT, MapOutputValsT> InterKeyValsMapT;
 	typedef std::vector<KeyValT> KeyValVectorT;
 	typedef std::vector<InterKeyValT> InterKeyValVector;
 
@@ -76,7 +76,7 @@ public:
 		}
 
 	public:
-		void insert(const OutputKeyT & key, const MapOutputValT & val){
+		void insert(const InterKeyT & key, const MapOutputValT & val){
 			int thread_id = omp_get_thread_num();
 			_data[thread_id][key].push_back(val);
 		}
@@ -110,7 +110,7 @@ public:
 			_data  = new KeyValVectorT[omp_get_max_threads()];
 		}
 
-		void insert(const OutputKeyT & key, const ReduceOutputValT & val){
+		void insert(const InterKeyT & key, const OutputValT & val){
 			int thread_id = omp_get_thread_num();
 			_data[thread_id].push_back(KeyValT(key,val));
 
@@ -148,25 +148,25 @@ public:
 	virtual ~MapReduceScheduler(){};
 
 	// fucntions to set runtime parameters
-	UINT get_num_map_thread() const{
+	my_size_t get_num_map_thread() const{
 		return mNumMapThreads;
 	};
-	void set_num_map_thread(const UINT n){
+	void set_num_map_thread(const my_size_t n){
 		mNumMapThreads=n;
 	};
-	UINT get_num_reduce_thread() const{
+	my_size_t get_num_reduce_thread() const{
 		return mNumReduceThreads;
 	};
-	void set_num_reduce_thread(const UINT n){
+	void set_num_reduce_thread(const my_size_t n){
 		mNumReduceThreads=n;
 	}
 
 	// function to set input
-	void set_input(const InputDataT * ptr, const UINT size){
+	void set_input(const InputDataT * ptr, const my_size_t size){
 		mInputData=ptr;
 		mInputDataSize=size;
 	}
-	void set_unit_size(const UINT size){
+	void set_unit_size(const my_size_t size){
 		mUnitSize=size;
 	}
 	const MapInputT get_input_data(){
@@ -234,17 +234,14 @@ public:
 	}
 	
 	// emit
-	void emit_intermediate(const OutputKeyT & key, const MapOutputValT & val){
+	void emit_intermediate(const InterKeyT & key, const MapOutputValT & val){
 		mInterData.insert(key,val);
 		
 	}
-	void emit(const ReduceOutputValT & val){
+	void emit(const OutputValT & val){
 		mOutputData.insert(keyForThreads[omp_get_thread_num()], val);
 	}
 
-	// user specified functions
-	virtual void map(const InputDataT *, const UINT)=0;
-	virtual void reduce(const OutputKeyT &, const MapOutputValIter & valBegin, const MapOutputValIter & valEnd)=0;
 
 	virtual void print_time(){
 #ifdef __TIMING__
@@ -255,23 +252,28 @@ public:
 	}
 private:
 	// num threads
-	UINT mNumMapThreads;
-	UINT mNumReduceThreads;
+	my_size_t mNumMapThreads;
+	my_size_t mNumReduceThreads;
 	// input data
 	const InputDataT * mInputData;
-	UINT mInputDataSize;
-	UINT mUnitSize;
+	my_size_t mInputDataSize;
+	my_size_t mUnitSize;
 	// intermediate data
 	InterMap mInterData;
 	// output data
 	OutputVector mOutputData;
 	// auxiliary data for the threads
-	vector<OutputKeyT> keyForThreads;
+	vector<InterKeyT> keyForThreads;
 
 	// profiling data
 	double map_time;
 	double merge_time;
 	double reduce_time;
+
+private:
+	// user specified functions
+	virtual void map(const InputDataT *, const my_size_t)=0;
+	virtual void reduce(const InterKeyT &, const MapOutputValIter & valBegin, const MapOutputValIter & valEnd)=0;
 };
 
 #endif
