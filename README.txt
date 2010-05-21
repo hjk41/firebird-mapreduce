@@ -12,6 +12,9 @@ not designed for efficiency, but for demonstration of the MapReduce programming
 model. We hope that through using Firebird, students can learn to express the
 algorithms using the MapReduce model, so that they will be able to write 
 real-world MapReduce code once they need to.
+  If you need efficiency, please refer to MapCG, a much more efficient 
+implementation:
+  https://sourceforge.net/projects/mapp/
 
 
 
