@@ -1,0 +1,8 @@
+CC = g++ -O3 -fopenmp 
+EXE = program_name
+
+$(EXE): main.cpp firebird.h time.h
+	$(CC) main.cpp -o $(EXE)
+
+clean:
+	-rm *.o $(EXE)

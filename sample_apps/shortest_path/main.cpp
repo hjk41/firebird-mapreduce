@@ -188,7 +188,8 @@ cout<<"init: "<<t2-t1<<endl;
 	}while(1);
 
 	for(int i=0;i<num_nodes && i<10; i++){
-		printf("(%d,%f)\n",i,dist[i]);
+		float d= dist[i]==LONGEST_DIST? -1 : dist[i];
+		printf("(%d,%f)\n",i,d);
 	}
 
 	s.print_time();
@@ -200,10 +201,10 @@ double t4=get_time();
 	float * dist_serial=new float[num_nodes];
 	dijkstra(graph, node_start, num_nodes, num_edges, source, dist_serial);
 	for(int i=0;i<10 && i<num_nodes;i++){
-		printf("(%d,%f)\n",i,dist_serial[i]);
+		float d= dist_serial[i]==LONGEST_DIST? -1 :dist_serial[i];
+		printf("(%d,%f)\n",i,d);
 	}
 
-//	cout<<dist_serial[341]<<endl;
 double t5=get_time();
 cout<<"dijkstra: "<<t5-t4<<endl;
 
