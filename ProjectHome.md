@@ -1,0 +1,3 @@
+MapReduce programming model is a parallel programming model first advocated by Google in 2004. In this model, programmers only need to write serial code, while the load balancing, fault tolerance issues are handled by the framework.
+
+Firebird is an open-source MapReduce implementation for shared-memory machines. It provides MapReduce programming APIs described in C++. Compared to Phoenix, which is an implementation by Stanford University, Firebird provides more elegant programming interface. However, the current implementation does not concern much about efficiency, so the efficiency may not be as good as Phoenix.
